@@ -1,6 +1,8 @@
 # robot-gui3
 
-This template should help get you started developing with Vue 3 in Vite.
+Graphical control panel for SCARA robot.
+
+![screenshot](https://github.com/thetooth/robot-gui/blob/master/pic.png?raw=true)
 
 ## Recommended IDE Setup
 
