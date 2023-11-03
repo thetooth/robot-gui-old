@@ -17,8 +17,6 @@ const nc = await connect({
 const sub = nc.subscribe("motion.status");
 
 import { modelRef } from './scene';
-import { smc_errors } from './smc_error';
-import { gamepads } from './gamepad';
 
 let hearbeat = ref();
 let hearbeatIndictor = ref();
@@ -100,15 +98,6 @@ function stop() {
 function reset() {
     nc.publish('motion.command', jc.encode({ command: 'reset' }))
 }
-function updatePath(gcode) {
-    nc.publish('motion.command', jc.encode({
-        command: 'gcode', position: [
-            { x: 0, y: 170, vel: 100 }, { x: -100, y: 100, vel: 6000 }, { x: -200, y: 280, vel: 5000 }, { x: 200, y: 170, vel: 5000 }, { x: 0, y: 170 }]
-    }))
-    // nc.publish('motion.command', jc.encode({ command: 'gcode', position: [
-    //     { x: 0, y: 80, vel: 6000 }, { x: 0, y: 300, vel: 6000 }, { x: 100, y: 100, vel: 6000 }, { x: 100, y: -250, vel: 6000 }, { x: 0, y: 80, vel: 6000 }
-    // ]}))
-}
 function immediate(x, y) {
     nc.publish('motion.command', jc.encode({
         command: 'goto', position: { x: x, y: y }
@@ -141,16 +130,13 @@ GPY:    {{ ay.toFixed(2) }}mm
         <cds-button @click="start"><img class="icon" src="@/assets/start.svg" />Start</cds-button>
         <cds-button @click="stop" kind="danger"><img class="icon" src="@/assets/stop.svg" />Stop</cds-button>
         <cds-button @click="reset" kind="secondary"><img class="icon" src="@/assets/reset.svg" />Reset</cds-button>
-        <cds-button @click="updatePath" kind="tertiary">Send Path</cds-button>
     </div>
 
     <div class="editor">
         <cds-slider label-text="DX" max="300" min="-300" step="1" :value="ax"
-            @cds-slider-changed="ax = $event.detail.value; immediate(ax, ay)"><cds-slider-input aria-label="Slider value"
-                type="number"></cds-slider-input></cds-slider>
+            @cds-slider-changed="ax = $event.detail.value; immediate(ax, ay)"></cds-slider>
         <cds-slider label-text="DY" max="300" min="-300" step="1" .value="ay"
-            @cds-slider-changed="ay = $event.detail.value; immediate(ax, ay)"><cds-slider-input aria-label="Slider value"
-                type="number"></cds-slider-input></cds-slider>
+            @cds-slider-changed="ay = $event.detail.value; immediate(ax, ay)"></cds-slider>
     </div>
 </template>
 
