@@ -12,6 +12,12 @@ const scene = new THREE.Scene();
 const loader = new GLTFLoader().setPath('models/');
 let modelRef = null;
 
+const geometry = new THREE.SphereGeometry(15, 32, 16);
+const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+const sphere = new THREE.Mesh(geometry, material);
+sphere.name = "pointer";
+scene.add(sphere);
+
 loader.load(
     // resource URL
     'bot.gltf',
@@ -31,6 +37,8 @@ loader.load(
         console.log('An error happened');
     }
 );
+
+
 
 /*
 =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=

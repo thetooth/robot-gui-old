@@ -16,7 +16,7 @@ const nc = await connect({
 });
 const sub = nc.subscribe("motion.status");
 
-import { modelRef } from './scene';
+import { modelRef, scene } from './scene';
 
 let hearbeat = ref();
 let hearbeatIndictor = ref();
@@ -25,7 +25,8 @@ let run = ref();
 let alarm = ref();
 let state = ref();
 let dro = ref({
-    dx: 0, dy: 0, dAlpha: 0, dBeta: 0
+    dx: 0, dy: 0, dAlpha: 0, dBeta: 0,
+    ax: 0, ay: 0, vx: 0, vy: 0,
 });
 let diagmsg = ref();
 let a1Error = ref();
@@ -33,6 +34,7 @@ let a2Error = ref();
 
 let ax = ref(0);
 let ay = ref(150);
+let mult = ref(0);
 
 setInterval(() => {
     if (hearbeat.value) {
@@ -51,10 +53,10 @@ setInterval(() => {
         alarm.value = payload.alarm;
         state.value = payload.state;
         diagmsg.value = payload.diagMsg;
-        // a1Error.value = payload.a1Err;
-        // a2Error.value = payload.a2Err;
         dro.value.dx = payload.dx
         dro.value.dy = payload.dy
+        dro.value.vx = payload.vx
+        dro.value.vy = payload.vy
         dro.value.dAlpha = payload.dAlpha
         dro.value.dBeta = payload.dBeta
         hearbeat.value = true
@@ -69,22 +71,24 @@ setInterval(() => {
             modelRef.getObjectByName(a2Name).translateZ(0.360);
             modelRef.getObjectByName(a2Name).rotation.y = (payload.dBeta - 0) * Math.PI / 180;
             modelRef.getObjectByName(a2Name).translateZ(-0.360);
+
+            scene.getObjectByName("pointer").position.set(ax.value, 70, -ay.value + 70);
         } catch (e) {
             // console.log(e);
         }
 
-        // if (gamepads[0] != undefined) {
-        //     console.log(gamepads[0].axes)
-        //     // ax.value += gamepads[0].axes[0];
-        // }
         const gamepads = navigator.getGamepads();
         for (const gp of gamepads) {
             if (gp == null) {
                 continue
             }
-            ax.value += (Math.abs(gp.axes[0]) > 0.01 ? gp.axes[0] : 0);
-            ay.value += (Math.abs(gp.axes[1]) > 0.01 ? gp.axes[1] : 0);
+
+            mult.value = (1 / Math.pow(3, 4)) * Math.pow(Math.exp(gp.axes[2] + 1), 5.01);
+
+            ax.value += (Math.abs(gp.axes[0]) > 0.01 ? gp.axes[0] * mult.value * (1 / 120) : 0);
+            ay.value += (Math.abs(gp.axes[1]) > 0.01 ? gp.axes[1] * mult.value * (1 / 120) : 0);
             immediate(ax.value, ay.value);
+            break;
         }
     }
 })();
@@ -116,14 +120,19 @@ function immediate(x, y) {
 
     <div class="dro">
         <pre>
-DX:     {{ dro.dx.toFixed(2) }}mm
-DY:     {{ dro.dy.toFixed(2) }}mm
-DAlpha: {{ dro.dAlpha.toFixed(2) }}&deg;
-DBeta:  {{ dro.dBeta.toFixed(2) }}&deg;
+DX:     {{ dro.dx.toFixed(3) }}mm
+DY:     {{ dro.dy.toFixed(3) }}mm
+
+VX:     {{ dro.vx.toFixed(3) }}&deg;/s
+VY:     {{ dro.vy.toFixed(3) }}&deg;/s
+DAlpha: {{ dro.dAlpha.toFixed(3) }}&deg;
+DBeta:  {{ dro.dBeta.toFixed(3) }}&deg;
+
 Diag:
 {{ diagmsg }}
-GPX:    {{ ax.toFixed(2) }}mm
-GPY:    {{ ay.toFixed(2) }}mm
+GPX:    {{ ax.toFixed(3) }}mm
+GPY:    {{ ay.toFixed(3) }}mm
+Mult:   {{ mult.toFixed(3) }}mm/s
         </pre>
     </div>
     <div class="controls">
