@@ -4,11 +4,15 @@ import '@carbon/web-components/es/components/ui-shell/index.js';
 import '@carbon/web-components/es/components/button/index.js';
 import '@carbon/web-components/es/components/icon-button/index.js';
 import '@carbon/web-components/es/components/slider/index.js';
+import '@carbon/web-components/es/components/toggle/index.js';
+import '@carbon/web-components/es/components/progress-indicator/index'
 import { JSONCodec } from "nats.ws";
 import { useNCStore } from "./stores/nc"
-// import { modelRef, scene } from './scene';
 
 import Activity from '@carbon/icons-vue/es/activity/16';
+import DataCollection from '@carbon/icons-vue/es/data-collection/16'
+import TreeView from '@carbon/icons-vue/es/tree-view/16'
+import Fragile from '@carbon/icons-vue/es/fragile/16'
 
 import Model from './components/Model.vue'
 import SetPosition from './components/SetPosition.vue'
@@ -18,6 +22,10 @@ import Dynamics from './components/Dynamics.vue'
 export default {
     components: {
         Activity,
+        DataCollection,
+        TreeView,
+        Fragile,
+
         Model,
         SetPosition,
         Teach,
@@ -26,6 +34,8 @@ export default {
     setup() {
         const store = useNCStore()
         const jc = new JSONCodec()
+
+        let view = ref(0);
 
         let statusSub = ref(null);
 
@@ -37,12 +47,27 @@ export default {
         let state = ref();
 
         let diagmsg = ref();
+        let otgStatus = ref(-1);
+        const otgStatusTable = new Map([
+            [0, 'The trajectory is calculated normally'],
+            [1, 'The trajectory has reached its final position'],
+            [-1, 'Unclassified error'],
+            [-100, 'Error in the input parameter'],
+            [-101, 'The trajectory duration exceeds its numerical limits'],
+            [-102, 'The trajectory exceeds the given positional limits'],
+            [-103, 'The trajectory cannot be phase synchronized'],
+            [-104, 'The trajectory is not valid due to a conflict with zero limits'],
+            [-110, 'Error during the extremel time calculation (Step 1)'],
+            [-111, 'Error during the synchronization calculation (Step 2)']
+        ])
+        let lastIn = 0;
+        let msgps = ref(0.0);
 
         onMounted(async () => {
-            await store.setup()
+            await store.setup();
             statusSub = store.nc.subscribe("motion.status");
 
-            hearbeatInterval = setInterval(() => {
+            hearbeatInterval = setInterval(async () => {
                 if (hearbeat.value) {
                     hearbeatIndictor.value = true;
                     setTimeout(() => { hearbeatIndictor.value = false }, 100)
@@ -50,6 +75,9 @@ export default {
                     hearbeatIndictor.value = false;
                 }
                 hearbeat.value = false
+                let stats = store.nc.stats();
+                msgps.value = stats.inMsgs + stats.outMsgs - lastIn;
+                lastIn = stats.inMsgs + stats.outMsgs;
             }, 1000);
 
             (async () => {
@@ -59,12 +87,8 @@ export default {
                     alarm.value = payload.alarm;
                     state.value = payload.state;
                     diagmsg.value = payload.diagMsg;
-                    store.dro.dx = payload.dx
-                    store.dro.dy = payload.dy
-                    store.dro.vx = payload.vx
-                    store.dro.vy = payload.vy
-                    store.dro.dAlpha = payload.dAlpha
-                    store.dro.dBeta = payload.dBeta
+                    otgStatus.value = payload.otg.result;
+                    store.dro.pose = payload.pose;
                     hearbeat.value = true
 
                     const gamepads = navigator.getGamepads();
@@ -81,7 +105,8 @@ export default {
 
                         store.controls.x += gp.axes[0] * mult * (1 / 120);
                         store.controls.y += gp.axes[1] * mult * (1 / 120);
-                        store.immediate(store.controls.x, store.controls.y);
+                        store.controls.r += gp.axes[3] * mult * (1 / 120)
+                        store.immediate(store.controls.x, store.controls.y, store.controls.z);
                         break;
                     }
                 }
@@ -96,7 +121,7 @@ export default {
         })
 
         return {
-            store, hearbeatIndictor, alarm, state, diagmsg,
+            store, view, hearbeatIndictor, alarm, state, diagmsg, otgStatus, otgStatusTable, msgps,
         }
     }
 }
@@ -110,20 +135,40 @@ export default {
         <cds-button kind="ghost">{{ state }}</cds-button>
         <cds-button v-if="store.run" kind="warning">Running</cds-button>
         <cds-button v-if="alarm" kind="danger">Alarm</cds-button>
+        <div class="cds--header__global">
+            <cds-header-global-action aria-label="Commisioning" tooltip-text="Commisioning" kind="primary" size="lg"
+                tooltip-alignment="" tooltip-position="bottom" type="button" @click="view = 0">
+                <DataCollection slot="icon" />
+            </cds-header-global-action>
+            <cds-header-global-action aria-label="Dynamics" tooltip-text="Dynamics" tooltip-alignment="right" kind="primary"
+                size="lg" tooltip-position="bottom" type="button" @click="view = 1">
+                <Fragile slot="icon" />
+            </cds-header-global-action>
+        </div>
     </cds-header>
 
     <div class="main">
         <div class="model">
+            <cds-progress-indicator class="progress" v-if="store.ready">
+                <cds-progress-step :state="(store.nc.protocol.connected ? 'complete' : 'invalid')" label="Message Bus"
+                    secondary-label="Connected"></cds-progress-step>
+                <cds-progress-step :state="(msgps >= 120 ? 'complete' : 'invalid')" label="Telemetry"
+                    :secondary-label="msgps + ' msg/s'"></cds-progress-step>
+                <cds-progress-step state="invalid" label="Homing" secondary-label="Invalid"></cds-progress-step>
+                <cds-progress-step state="current" label="Motion Plan"
+                    secondary-label="No behavior defined"></cds-progress-step>
+                <!-- <cds-progress-step disabled="" label="Execute" state="incomplete"></cds-progress-step> -->
+            </cds-progress-indicator>
             <Model v-if="store.ready" />
         </div>
         <div class="editor">
-            <SetPosition v-if="store.ready" />
-            <Teach v-if="store.ready" />
-            <Dynamics v-if="store.ready" />
+            <SetPosition v-if="store.ready && view == 0" />
+            <Teach v-if="store.ready && view == 0" />
+            <Dynamics v-if="store.ready && view == 1" />
         </div>
         <div class="controls">
-            <cds-button @click="store.start"><img class="icon" src="@/assets/start.svg" />Start</cds-button>
             <cds-button @click="store.stop" kind="danger"><img class="icon" src="@/assets/stop.svg" />Stop</cds-button>
+            <cds-button @click="store.start"><img class="icon" src="@/assets/start.svg" />Start</cds-button>
             <cds-button @click="store.reset" kind="secondary"><img class="icon"
                     src="@/assets/reset.svg" />Reset</cds-button>
         </div>
@@ -131,23 +176,35 @@ export default {
 
     <div class="dro">
         <pre>
-DX:     {{ store.dro.dx.toFixed(3) }}mm
-DY:     {{ store.dro.dy.toFixed(3) }}mm
+X:          {{ store.dro.pose.x.toFixed(3) }}mm
+Y:          {{ store.dro.pose.y.toFixed(3) }}mm
+Z:          {{ store.dro.pose.z.toFixed(3) }}mm
+R:          {{ store.dro.pose.r.toFixed(3) }}&deg;
 
-VX:     {{ store.dro.vx.toFixed(3) }}&deg;/s
-VY:     {{ store.dro.vy.toFixed(3) }}&deg;/s
-DAlpha: {{ store.dro.dAlpha.toFixed(3) }}&deg;
-DBeta:  {{ store.dro.dBeta.toFixed(3) }}&deg;
+Alpha:      {{ store.dro.pose.alpha.toFixed(3) }}&deg;
+Beta:       {{ store.dro.pose.beta.toFixed(3) }}&deg;
+Phi:        {{ store.dro.pose.phi.toFixed(3) }}&deg;
+Theta:      {{ store.dro.pose.theta.toFixed(3) }}&deg;
+Alpha V:    {{ store.dro.pose.alphaVelocity.toFixed(3) }}&deg;/s
+Beta V:     {{ store.dro.pose.betaVelocity.toFixed(3) }}&deg;/s
+Phi V:      {{ store.dro.pose.phiVelocity.toFixed(3) }}&deg;/s
+Theta V:    {{ store.dro.pose.thetaVelocity.toFixed(3) }}&deg;/s
+
+OTG:        {{ otgStatusTable.get(otgStatus) }}
 
 Diag:
 {{ diagmsg }}
+
 GPX:    {{ store.controls.x.toFixed(3) }}mm
 GPY:    {{ store.controls.y.toFixed(3) }}mm
         </pre>
     </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+@use '@carbon/themes/scss/themes' as *;
+@use '@carbon/themes';
+
 ::-webkit-scrollbar {
     display: none;
 }
@@ -176,6 +233,13 @@ GPY:    {{ store.controls.y.toFixed(3) }}mm
     max-width: 75%;
     max-height: 100vh;
     overflow: hidden;
+}
+
+.progress {
+    position: relative;
+    top: 4.5rem;
+    justify-content: flex-end;
+    @include themes.theme($g10);
 }
 
 .editor {

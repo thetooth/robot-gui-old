@@ -3,26 +3,26 @@ import { ref, onMounted, onUpdated, onBeforeUnmount } from 'vue';
 import { useNCStore } from "../stores/nc"
 import { JSONCodec } from "nats.ws";
 
-import DataCollection from '@carbon/icons-vue/es/data-collection/16'
-import TreeView from '@carbon/icons-vue/es/tree-view/16'
 import Recording from '@carbon/icons-vue/es/recording/16'
 import Stop from '@carbon/icons-vue/es/stop/16'
 import Play from '@carbon/icons-vue/es/play/16'
 import Erase from '@carbon/icons-vue/es/erase/16'
 import Delete from '@carbon/icons-vue/es/delete/16'
+import SkipBack from '@carbon/icons-vue/es/skip--back/16'
+import SkipForward from '@carbon/icons-vue/es/skip--forward/16'
 import Draw from '@carbon/icons-vue/es/draw/16'
 
 // import { modelRef, scene } from '../scene';
 
 export default {
     components: {
-        DataCollection,
-        TreeView,
         Recording,
         Stop,
         Play,
         Erase,
         Delete,
+        SkipBack,
+        SkipForward,
         Draw
     },
     setup() {
@@ -39,7 +39,7 @@ export default {
             poses: [{ x: 0, y: 0 }]
         });
         let allowableError = ref(0.1);
-        let direct = ref(false);
+        let direct = ref(true);
         const speed = ref(1);
 
         onMounted(async () => {
@@ -67,7 +67,7 @@ export default {
         function record() {
             store.nc.publish('teach.record', jc.encode(null))
         }
-        function stopRecord() {
+        function stop() {
             store.playing = false;
             store.nc.publish('teach.stop', jc.encode(null))
         }
@@ -90,10 +90,16 @@ export default {
         function clear() {
             store.nc.publish('teach.clear', jc.encode(null))
         }
+        function back() {
+            store.nc.publish('teach.back', jc.encode(null))
+        }
+        function forward() {
+            store.nc.publish('teach.forward', jc.encode(null))
+        }
 
         return {
-            record, stopRecord, replay, replaySpeed, positionError, recordDirect, del, clear,
-            store, recStatus, allowableError, direct, speed
+            record, stop, replay, replaySpeed, positionError, recordDirect, del, clear, back, forward,
+            store, recStatus, allowableError, direct, speed,
         }
     }
 }
@@ -103,7 +109,7 @@ export default {
     <div class="cds--grid cds--grid--condensed">
         <div class="cds--row">
             <h4>
-                <TreeView class="icon-alt" />&nbsp;Teach
+                Teach Waypoints
             </h4>
         </div>
 
@@ -131,23 +137,35 @@ export default {
                     </span>
                     <span slot="tooltip-content">Replay</span>
                 </cds-icon-button>
-                <cds-icon-button size="lg" kind="secondary" @click="stopRecord">
+                <cds-icon-button size="lg" kind="secondary" @click="stop">
                     <span slot="icon">
                         <Stop />
                     </span>
                     <span slot="tooltip-content">Stop</span>
                 </cds-icon-button>
+                <cds-icon-button size="lg" kind="secondary" @click="back">
+                    <span slot="icon">
+                        <SkipBack />
+                    </span>
+                    <span slot="tooltip-content">Back</span>
+                </cds-icon-button>
+                <cds-icon-button size="lg" kind="secondary" @click="forward">
+                    <span slot="icon">
+                        <SkipForward />
+                    </span>
+                    <span slot="tooltip-content">Forward</span>
+                </cds-icon-button>
                 <cds-icon-button size="lg" kind="secondary" @click="del">
                     <span slot="icon">
                         <Delete />
                     </span>
-                    <span slot="tooltip-content">Remove Last</span>
+                    <span slot="tooltip-content">Delete</span>
                 </cds-icon-button>
                 <cds-icon-button size="lg" kind="secondary" @click="clear">
                     <span slot="icon">
                         <Erase />
                     </span>
-                    <span slot="tooltip-content">Clear</span>
+                    <span slot="tooltip-content">Clear All</span>
                 </cds-icon-button>
             </div>
         </div>

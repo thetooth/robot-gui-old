@@ -54,9 +54,11 @@ export default {
                 'bot.gltf',
                 // called when the resource is loaded
                 function (geometry) {
-                    model = geometry.scene.getObjectByName('Root').getObjectByName('scara_bot_rev3');
+                    console.log(geometry.scene.getObjectByName('Root'));
+                    model = geometry.scene.getObjectByName('Root').getObjectByName('scara_bot_rev4');
                     model.scale.set(1000, 1000, 1000);
-                    model.translateZ(230);
+                    model.translateZ(200);
+                    model.translateY(-100);
                     model.rotateY(180 * Math.PI / 180);
                     store.scene.add(model);
                     console.log(model);
@@ -74,22 +76,22 @@ export default {
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); // soft white light
             store.scene.add(ambientLight);
             // White directional light at half intensity shining from the top.
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            const directionalLight = new THREE.DirectionalLight(0xffffcc, 1);
+            directionalLight.position.set(1, 1, -1)
             store.scene.add(directionalLight);
 
-            const hemisphereLight = new THREE.HemisphereLight(0x7444ff, 0xff00bb, 0.5);
+            const hemisphereLight = new THREE.HemisphereLight(0x7444ff, 0x7444ff, 0.5);
             store.scene.add(hemisphereLight);
 
-            const pointLight = new THREE.PointLight(0x7444ff, 1, 100);
-            pointLight.position.set(0, 300, 400);
+            const pointLight = new THREE.PointLight(0xedf5ff, 30000, 1000 * 1000);
+            pointLight.position.set(0, -50, -600);
             store.scene.add(pointLight);
         }
 
         function createCamera() {
             camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height);
             camera.position.y = 600;
-            camera.position.z = 0;
-            camera.rotateZ(180);
+            camera.position.z = -190;
             store.scene.add(camera);
         }
 
@@ -107,25 +109,9 @@ export default {
                 resized = true
             })
 
-            // window.addEventListener('resize', () => {
-            //     // Update sizes
-            //     const canvas = renderer.domElement;
-            //     sizes.width = canvas.clientWidth
-            //     sizes.height = canvas.clientHeight
-            //     // sizes.width = window.innerWidth;
-            //     // sizes.height = window.innerHeight;
-
-            //     // Update camera
-            //     camera.aspect = sizes.width / sizes.height;
-            //     camera.updateProjectionMatrix();
-
-            //     // Update renderer
-            //     renderer.setSize(sizes.width, sizes.height);
-            //     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            // })
-
             const controls = new OrbitControls(camera, canvas);
             controls.enableDamping = true;
+            controls.target = new THREE.Vector3(0, 0, -200);
 
             const clock = new THREE.Clock();
             let previousTime = 0;
@@ -179,7 +165,7 @@ export default {
                     let line = store.scene.getObjectByName("path")
                     let positionAttribute = line.geometry.getAttribute('position')
                     payload.forEach(function (pose, i) {
-                        positionAttribute.setXYZ(i, pose.x, 52, -pose.y + 70);
+                        positionAttribute.setXYZ(i, pose.x, -pose.z, -pose.y);
                     });
                     line.geometry.setDrawRange(0, payload.length);
                     line.geometry.computeBoundingBox();
@@ -199,17 +185,21 @@ export default {
 
             watch(store.dro, (dro) => {
                 if (model != null) {
-                    let a1Name = 'A1^scara_bot_rev3-1'
-                    model.getObjectByName(a1Name).translateZ(0.16);
-                    model.getObjectByName(a1Name).rotation.y = (dro.dAlpha - 90) * Math.PI / 180;
-                    model.getObjectByName(a1Name).translateZ(-0.16);
+                    let a1Name = 'A1^scara_bot_rev4-1'
+                    model.getObjectByName(a1Name).translateZ(0.2);
+                    model.getObjectByName(a1Name).rotation.y = (dro.pose.alpha - 90) * Math.PI / 180;
+                    model.getObjectByName(a1Name).translateZ(-0.2);
 
-                    let a2Name = 'A2^scara_bot_rev3-1'
-                    model.getObjectByName(a2Name).translateZ(0.360);
-                    model.getObjectByName(a2Name).rotation.y = (dro.dBeta - 0) * Math.PI / 180;
-                    model.getObjectByName(a2Name).translateZ(-0.360);
+                    let a2Name = 'A2^scara_bot_rev4-1'
+                    model.getObjectByName(a2Name).translateZ(0.4);
+                    model.getObjectByName(a2Name).rotation.y = (dro.pose.beta - 0) * Math.PI / 180;
+                    model.getObjectByName(a2Name).translateZ(-0.4);
 
-                    store.scene.getObjectByName("pointer").position.set(store.controls.x, 52, -store.controls.y + 70);
+                    let gripperName = 'RSSY1616Shaft^scara_bot_rev4-1';
+                    model.getObjectByName(gripperName).position.y = -((dro.pose.z - 400) / 1000.0)
+                    model.getObjectByName(gripperName).rotation.z = (dro.pose.phi - 7) * Math.PI / 180
+
+                    store.scene.getObjectByName("pointer").position.set(store.controls.x, -store.controls.z, -store.controls.y);
                 }
             })
         });

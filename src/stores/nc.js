@@ -9,17 +9,43 @@ export const useNCStore = defineStore('nc', () => {
 
     let run = ref();
     let dro = ref({
-        dx: 0, dy: 0, dAlpha: 0, dBeta: 0,
-        ax: 0, ay: 0, vx: 0, vy: 0,
+        pose: {
+            x: 0, y: 0, z: 0, r: 0,
+            alpha: 0, beta: 0, phi: 0, theta: 0,
+            alphaVelocity: 0, betaVelocity: 0, phiVelocity: 0, thetaVelocity: 0,
+        }
     });
     const controls = ref({
-        x: 0, y: 150,
+        x: 0, y: 150, z: 0, r: 0
     })
 
     let scene = ref(null);
     let model = ref(null);
 
     const playing = false;
+
+    let settings = ref([
+        {
+            "max-velocity": 600.0,
+            "max-acceleration": 2500.0,
+            "max-jerk": 10000.0
+        },
+        {
+            "max-velocity": 600.0,
+            "max-acceleration": 2500.0,
+            "max-jerk": 10000.0
+        },
+        {
+            "max-velocity": 2000.0,
+            "max-acceleration": 100000.0,
+            "max-jerk": 100000.0
+        },
+        {
+            "max-velocity": 10000.0,
+            "max-acceleration": 10000.0,
+            "max-jerk": 100000.0
+        },
+    ])
 
     async function setup() {
         nc.value = await connect({
@@ -36,19 +62,21 @@ export const useNCStore = defineStore('nc', () => {
     function reset() {
         this.nc.publish('motion.command', jc.encode({ command: 'reset' }))
     }
-    function immediate(x, y) {
+    function immediate(x, y, z, r) {
         this.controls.x = x
         this.controls.y = y
+        this.controls.z = z
+        this.controls.r = r
         if (playing) {
             return
         }
         this.nc.publish('motion.command', jc.encode({
-            command: 'goto', pose: { x: x, y: y }
+            command: 'goto', pose: { x: x, y: y, z: z, r: r }
         }))
     }
 
     return {
         setup, start, stop, reset, immediate,
-        ready, nc, scene, model, dro, controls
+        ready, nc, scene, model, dro, controls, settings
     }
 })
